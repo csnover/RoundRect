@@ -22,6 +22,9 @@ Features:
 
 Caveats:
 
+* Only pixel units are supported for padding, border-width, and border-radius.
+  Anything else will be assumed to be pixel width, even if it isn’t.
+  You’ve been warned.
 * Currently relies on jQuery 1.4 for some magic—but that’s OK, because you were
   already using jQuery, right? (These lingering dependencies will be the first
   to go. Yay for growing up and being independent!)
