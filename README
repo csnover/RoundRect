@@ -1,0 +1,66 @@
+RoundRect
+
+Based on DD_roundies, but totally rearchitected to be less confusing, more
+maintainable, and more feature-filled, this library adds support for the CSS3
+border-radius property in IE7 and 8, but without ANY configuration required.
+
+Rules are read directly from your stylesheets, so unlike other libraries, you
+*do not* need to redefine your border-radius styles within JavaScript. Just
+RoundRect.run() and you’ve got rounded rectangles!
+
+Features:
+
+* A svelte 4.1kB once minified + gzipped
+* Properly object-oriented; no C masquerading as PHP here
+* 100% configuration-free border-radius support
+* Supports dynamically updating backgrounds and borders, without using polling
+* Supports :hover and :focus pseudo-elements (for versions of IE with native
+  support for these pseudo-elements)
+* Supports input and textarea elements, and even drop-downs in IE8
+* Functions properly in IE7 and IE8 strict mode
+* (Almost) readable code with (nearly) complete jsdoc documentation
+
+Caveats:
+
+* Currently relies on jQuery 1.4 for some magic—but that’s OK, because you were
+  already using jQuery, right? (These lingering dependencies will be the first
+  to go. Yay for growing up and being independent!)
+* Dynamic updates are about as responsive as a rock star in a drug-induced coma
+  in IE8; in IE7, more like a 90-year-old missing their hearing aids.
+* Sometimes, elements aren’t properly redrawn when a change causes several
+  different elements to be restyled simultaneously (like, say, switching tabs.
+  What a bunch of crap.)
+* hasLayout is required, so it might break your design when rounded elements
+  (and their parents) are surprised with the gift of layout
+* Mouse events like mouseover, mouseenter, mousemove will start behaving
+  erattically when the mouse moves over a rounded element. More specifically,
+  hovering over an area of a rounded element that does not contain a child
+  element will result in the mouse basically falling through the layer into
+  VML’s cold, dead arms.
+* Could it support more of CSS3 backgrounds and borders, like, perhaps,
+  rgba backgrounds? HECK YES IT COULD, TOTALLY! …but it doesn’t right now.
+
+Usage:
+
+1. Load the script.
+2. Call RoundRect.run().
+3. Have a beer. You did a great job!
+
+Advanced usage:
+
+1. Load the script.
+2. var roundrect = RoundRect.create(element, dynamic);
+3. roundrect.destroy(); // restores the original glint and shine of your html
+   // one you decide that this web 2.0 thing kinda sucks and round rectangles
+   // are lame and outdated.
+   //
+   // (in theory.)
+   //
+   //
+   // …
+   // (it hasn’t really been tested yet.)
+4. Have two beers. You did twice the work, you totally deserve that extra one!
+
+Documentation:
+
+jsdoc in the source code! Go read it!
