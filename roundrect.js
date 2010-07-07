@@ -39,8 +39,22 @@
 	 * Enables VML for the current page.
 	 * @private
 	 */
-	(function enableVml() {
+	function enableVml() {
 		var css, rule;
+
+		// IE will throw confused errors if document.namespaces
+		// is not ready for our sweet sweet lovin’
+		try {
+			if (ie8) {
+				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml', '#default#VML');
+			}
+			else {
+				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml');
+			}
+		}
+		catch (e) {
+			setTimeout(enableVml, 10);
+		}
 
 		// Technically not part of enabling VML, but it is important to
 		// prevent all sorts of havoc
@@ -48,20 +62,6 @@
 			document.execCommand('BackgroundImageCache', false, true);
 		}
 		catch (e) {}
-
-		if (ie8) {
-			// IE will throw confused errors if document.namespaces
-			// is not ready for our sweet sweet lovin’
-			try {
-				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml', '#default#VML');
-			}
-			catch (e) {
-				setTimeout(enableVml, 10);
-			}
-		}
-		else {
-			document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml');
-		}
 
 		// luckily, IE does not care that styles are going into the body
 		css = document.createElement('style');
@@ -71,7 +71,14 @@
 		css.styleSheet.addRule(xmlns + '\\:shape', rule);
 		css.styleSheet.addRule(xmlns + '\\:group', rule);
 		css.styleSheet.addRule(xmlns + '\\:fill', rule);
-	}());
+	}
+
+	// That’s not IE! Getouttahere.
+	if (!window.attachEvent) {
+		return;
+	}
+
+	enableVml();
 
 	/**
 	 * Only you can prevent horrible memory leaks in IE—because Microsoft
@@ -107,7 +114,7 @@
 		this.element = element;
 		this.onPropertyChangeProxy = $.proxy(function () {
 			var self = this,
-				property = event.propertyName;
+				property = window.event.propertyName;
 
 			//console.log('PROPCHANGE ' + property);
 
@@ -118,7 +125,7 @@
 
 		this.onStateChangeProxy = $.proxy(function () {
 			var self = this,
-				eventType = event.type;
+				eventType = window.event.type;
 
 			//console.log('STATECHANGE ' + eventType);
 
@@ -130,7 +137,7 @@
 		this.onVmlStateChangeProxy = $.proxy(function () {
 			//console.log('VMLSTATECHANGE' + event.type);
 
-			this.onVmlStateChange(event.type);
+			this.onVmlStateChange(window.event.type);
 		}, this);
 
 		$(document).ready($.proxy(function () {
@@ -207,7 +214,7 @@
 
 		/**
 		 * :hover -> ns + -hover
-		 * @param {Object} CSSStyleSheet, IE style.
+		 * @param {Object} sheet CSSStyleSheet, IE style.
 		 */
 		function processStyleSheet(sheet) {
 			var i, rule;
@@ -650,7 +657,7 @@
 			 * Forces an element to have layout.
 			 * @param {...Element} var_args
 			 */
-			function forceLayout() {
+			function forceLayout(var_args) {
 				for (var e, i = 0, j = arguments.length; i < j; ++i) {
 					e = arguments[i];
 					e.style.zoom = 1;
@@ -740,14 +747,14 @@
 			// Without a timeout, IE will throw “unspecified errors”
 			setTimeout($.proxy(function () {
 				this.container.attachEvent('onmouseenter', $.proxy(function () {
-					var fakeEvent = document.createEventObject(event);
+					var fakeEvent = document.createEventObject(window.event);
 					fakeEvent.toElement = fakeEvent.srcElement = this.element;
-					this.element.fireEvent('on' + event.type, fakeEvent);
+					this.element.fireEvent('on' + window.event.type, fakeEvent);
 				}, this));
 				this.container.attachEvent('onmouseleave', $.proxy(function () {
-					var fakeEvent = document.createEventObject(event);
+					var fakeEvent = document.createEventObject(window.event);
 					fakeEvent.fromElement = fakeEvent.srcElement = this.element;
-					this.element.fireEvent('on' + event.type, fakeEvent);
+					this.element.fireEvent('on' + window.event.type, fakeEvent);
 				}, this));
 				this.dimensions = this.calculateDimensions();
 				this.borderWidths = this.calculateBorderWidths();
@@ -1041,7 +1048,7 @@
 			 * where it is supposed to be placed.
 			 * Abusive function. Abusive. Horrible. Fucking awful.
 			 * @param {string} axis X or Y.
-			 * @param {number} position
+			 * @param {(string|number)} position
 			 */
 			function figurePercentage(axis, position) {
 				var fraction = true;

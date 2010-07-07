@@ -42,13 +42,15 @@ Caveats:
 
 Usage:
 
-1. Load the script.
+1. Load the script. You should really use conditional comments and only load
+   for your lovely IE visitors, but it will work even if you forget.
 2. Call RoundRect.run().
 3. Have a beer. You did a great job!
 
 Advanced usage:
 
-1. Load the script.
+1. Load the script. You should really use conditional comments and only load
+   for your lovely IE visitors, but it will work even if you forget.
 2. var roundrect = RoundRect.create(element, dynamic);
 3. roundrect.destroy(); // restores the original glint and shine of your html
    // one you decide that this web 2.0 thing kinda sucks and round rectangles
