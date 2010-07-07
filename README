@@ -11,7 +11,7 @@ RoundRect.run() and you’ve got rounded rectangles!
 Features:
 
 * A svelte 4.1kB once minified + gzipped
-* Properly object-oriented; no C masquerading as PHP here
+* Properly object-oriented; no C masquerading as JavaScript here
 * 100% configuration-free border-radius support
 * Supports dynamically updating backgrounds and borders, without using polling
 * Supports :hover and :focus pseudo-elements (for versions of IE with native
