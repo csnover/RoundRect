@@ -33,7 +33,10 @@
 		uuid = 0,
 		collection = {},
 		ie8 = document.documentMode === 8,
-		imageMap = {};
+		imageMap = {},
+
+		isPixelString = /^-?\d+(?:px)?$/i,
+		isNumericString = /^-?\d/;
 
 	/**
 	 * Enables VML for the current page.
@@ -71,6 +74,37 @@
 		css.styleSheet.addRule(xmlns + '\\:shape', rule);
 		css.styleSheet.addRule(xmlns + '\\:group', rule);
 		css.styleSheet.addRule(xmlns + '\\:fill', rule);
+	}
+
+	/**
+	 * Gets a pixel value for any CSS value string.
+	 * @param {Element} e
+	 * @param {string} prop
+	 */
+	function getPixelValue(e, prop) {
+		var left = e.style.left,
+			rsLeft = e.runtimeStyle.left,
+			value = e.currentStyle[prop];
+
+		if (isPixelString.test(value)) {
+			return parseInt(e.currentStyle[prop], 10);
+		}
+
+		if (isNumericString.test(value)) {
+			// Put in the new values to get a computed value out
+			e.runtimeStyle.left = e.currentStyle.left;
+			e.style.left = value;
+
+			value = e.style.pixelLeft;
+
+			// Revert the changed values
+			e.style.left = left;
+			e.runtimeStyle.left = rsLeft;
+
+			return value;
+		}
+
+		return 0;
 	}
 
 	// That’s not IE! Getouttahere.
@@ -968,11 +1002,11 @@
 		 * @private
 		 */
 		padBorder: function () {
-			var e = this.element, cs = e.currentStyle,
-				props = [ 'Top', 'Right', 'Bottom', 'Left' ], i;
+			var e = this.element, props = [ 'Top', 'Right', 'Bottom', 'Left' ],
+				i;
 
 			for (i = 0; i < 4; ++i) {
-				e.runtimeStyle['padding' + props[i]] = (parseInt(cs['padding' + props[i]], 10) || 0) + (parseInt(cs['border' + props[i] + 'Width'], 10) || 0) + 'px';
+				e.runtimeStyle['padding' + props[i]] = (getPixelValue(e, 'padding' + props[i]) + getPixelValue(e, 'border' + props[i] + 'Width')) + 'px';
 			}
 
 			e.runtimeStyle.border = 'none';
