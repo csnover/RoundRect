@@ -109,7 +109,12 @@
 		/**
 		 * @type {RegExp}
 		 */
-		isNumericString = /^-?\d/;
+		isNumericString = /^-?\d/,
+
+		/**
+		 * @type {string}
+		 */
+		hoverClass = ns + '-hover';
 
 	/**
 	 * Proxy function.
@@ -165,6 +170,44 @@
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Determines whether or not an element is a button input.
+	 * @param {Element} element
+	 * @return {boolean}
+	 */
+	function isButton(element) {
+		var tagName, type;
+
+		if (!element || !element.nodeName || !element.type) {
+			return false;
+		}
+
+		tagName = element.nodeName.toUpperCase();
+		type = element.type.toLowerCase();
+
+		return (tagName === 'BUTTON' || (tagName === 'INPUT'
+			&& (type === 'image' || type === 'button' || type === 'submit' || type === 'reset')));
+	}
+
+	/**
+	 * Determines whether or not an element is a text input.
+	 * @param {Element} element
+	 * @return {boolean}
+	 */
+	function isTextField(element) {
+		var tagName, type;
+
+		if (!element || !element.nodeName) {
+			return false;
+		}
+
+		tagName = element.nodeName.toUpperCase();
+		type = tagName === 'INPUT' ? element.type.toLowerCase() : null;
+
+		return ((tagName === 'INPUT' && (element.type === 'text' || element.type === 'password'))
+			|| tagName === 'TEXTAREA');
 	}
 
 	/**
@@ -287,8 +330,6 @@
 			var self = this,
 				property = window.event.propertyName;
 
-			//console.log('PROPCHANGE ' + property);
-
 			setTimeout(function () {
 				self.onPropertyChange.call(self, property);
 			});
@@ -298,17 +339,18 @@
 			var self = this,
 				eventType = window.event.type;
 
-			//console.log('STATECHANGE ' + eventType);
-
 			setTimeout(function () {
 				self.onStateChange.call(self, eventType);
 			});
 		});
 
 		this.onVmlStateChangeProxy = proxy(this, function () {
-			//console.log('VMLSTATECHANGE' + event.type);
+			// IE seems to sometimes ditch properties from the event object
+			// if we do not create references to them here before passing to
+			// the statechange function
+			var eventType = window.event.type;
 
-			this.onVmlStateChange(window.event.type);
+			this.onVmlStateChange(eventType);
 		});
 
 		this.events = {
@@ -620,12 +662,16 @@
 
 		/**
 		 * Breaks references to the DOM to allow Microsoft’s crap GC to GC.
+		 * (I am not entirely sure how many of this is actually necessary,
+		 * since 1. who cares about IE6, 2. sIEve is actually incredibly
+		 * unreliable at determining leaks, and 3. leaks are fixed in IE8
+		 * and will get collected when navigating to another page in IE7.
+		 * Expert advice is appreciated.)
 		 * @param {boolean=} restoreStyles Whether or not to restore inline
 		 * styles from when the element was first run through RoundRect.
 		 */
 		destroy: function (restoreStyles) {
 			var id = this.element[expando], i;
-			this.stop();
 			this.removeEvent();
 			this.element.removeAttribute(expando);
 
@@ -633,16 +679,13 @@
 				for (i in this.vml) {
 					if (this.vml.hasOwnProperty(i)) {
 						this.vml[i].filler = null;
+						this.vml[i] = null;
 					}
 				}
 			}
 
 			if (this.container) {
-				// IE will leak orphan nodes if we do not empty out the
-				// innerHTML before calling removeChild
-				this.container.innerHTML = '';
 				if (this.container && this.container.parentNode) {
-					this.container.parentNode.insertBefore(this.element, this.container);
 					this.container.parentNode.removeChild(this.container);
 				}
 			}
@@ -653,8 +696,11 @@
 						this.element.style[i] = this.originalStyles[i];
 					}
 				}
+
+				this.element.parentNode.style.width = '';
 			}
 
+			this.container = null;
 			this.element = null;
 			delete collection[id];
 		},
@@ -711,6 +757,30 @@
 		},
 
 		/**
+		 * Add a class to the element referenced by this RoundRect object.
+		 * @type {string} className
+		 */
+		addClass: function (className) {
+			var oldClassName = ' ' + this.element.className + ' ';
+
+			if (oldClassName.indexOf(' ' + className + ' ') === -1) {
+				this.element.className += ' ' + className;
+			}
+		},
+
+		/**
+		 * Remove a class from the element referenced by this RoundRect object.
+		 * @type {string} className
+		 */
+		removeClass: function (className) {
+			var oldClassName = ' ' + this.element.className + ' ';
+
+			if (oldClassName.indexOf(' ' + className + ' ') !== -1) {
+				this.element.className = oldClassName.replace(' ' + ns + '-hover ', ' ').replace(/^\s+|\s+$/g, '');
+			}
+		},
+
+		/**
 		 * Proxy for onVmlStateChange, binds ‘this’. Defined in the
 		 * constructor.
 		 * @type {Function}
@@ -725,20 +795,32 @@
 		 * @param {string} eventType
 		 */
 		onVmlStateChange: function (eventType) {
-			var className = ' ' + this.element.className + ' ';
-
-			if (eventType === 'click'
+			if (eventType === 'click' && isTextField(this.element)) {
+				// With RoundRect applied, text inputs can only be
+				// clicked on where text has already been written. This
+				// partially works around this issue. It is not perfect:
+				// clicking empty lines in textareas, for instance, puts the
+				// carat in the wrong place, but it works in most common cases
+				// and is much better than the default behaviour.
+				var range = this.element.createTextRange();
+				range.moveStart('textedit');
+				range.select();
+			}
+			else if (eventType === 'click' && isButton(this.element)) {
+				// Much like text fields, clicking on the VML part of a button
+				// will not trigger the button click
+				this.element.click();
+			}
+			else if (eventType === 'click'
 				&& document.activeElement !== this.element
 				&& document.activeElement !== document.body) {
 				document.activeElement.blur();
 			}
-			else if (eventType === 'mouseover'
-				     && className.indexOf(' ' + ns + '-hover ') === -1) {
-				this.element.className += ' ' + ns + '-hover';
+			else if (eventType === 'mouseover') {
+				this.addClass(hoverClass);
 			}
-			else if (eventType === 'mouseout'
-					 && className.indexOf(' ' + ns + '-hover ') !== -1) {
-				this.element.className = className.replace(' ' + ns + '-hover ', ' ').replace(/^\s+|\s+$/g, '');
+			else if (eventType === 'mouseout') {
+				this.removeClass(hoverClass);
 			}
 		},
 
@@ -839,6 +921,19 @@
 				}
 			}
 			else {
+				// Buttons always fail to change their hover states properly;
+				// though maybe it is just because it is really slow?
+				// TODO: Borders width/colour doesn’t seem to update properly
+				// even with this change for some reason.
+				if (isButton(this.element)) {
+					if (eventType === 'mouseenter') {
+						this.addClass(hoverClass);
+					}
+					else if (eventType === 'mouseleave') {
+						this.removeClass(hoverClass);
+					}
+				}
+
 				this.element.runtimeStyle.cssText = '';
 				this.dimensions = this.calculateDimensions();
 				this.borderWidths = this.calculateBorderWidths();
@@ -1007,22 +1102,14 @@
 			if (tagName === 'IMG') {
 				e.style.visibility = 'hidden';
 			}
-			else if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
-				// With RoundRect applied, text inputs can only be
-				// clicked on where text has already been written. This
-				// partially works around this issue. It is not perfect:
-				// clicking empty lines in textareas, for instance, puts the
-				// carat in the wrong place, but it works in most common cases
-				// and is much better than the default behaviour.
+			else if (isTextField(e)) {
 				this.container.style.cursor = cs.cursor === 'auto' ? 'text' : cs.cursor;
-				this.addEvent('container', 'click', proxy(this, function () {
-					var range = this.element.createTextRange();
-					range.moveStart('textedit');
-					range.select();
-				}));
+			}
+			else if (isButton(e)) {
+				this.container.style.cursor = cs.cursor === 'auto' ? 'pointer' : cs.cursor;
 			}
 
-			// Without a timeout, IE will throw “unspecified errors”
+			// Without a timeout, IE will throw “unspecified error”s
 			setTimeout(proxy(this, function () {
 				this.addEvent('container', 'mouseenter', proxy(this, function () {
 					var fakeEvent = document.createEventObject(window.event);
@@ -1041,7 +1128,10 @@
 		},
 
 		/**
-		 * Applies all changes to the VML elements for an element.
+		 * Applies all changes to the VML elements for an element. You can call
+		 * this if you are not using RoundRect’s dynamic properties
+		 * functionality and need to update the style, or if it doesn’t work
+		 * properly for some reason.
 		 */
 		applyVML: function () {
 			// If the element thinks it is invisible, chances are it was
@@ -1102,7 +1192,8 @@
 			var dimensions = this.dimensions,
 				i,
 				vml = this.vml,
-				multiplier;
+				multiplier,
+				parent = this.element.parentNode;
 
 			/**
 			 * Copies style properties from the dimensions hash to another
@@ -1126,6 +1217,15 @@
 			}
 
 			assign(this.container, false);
+
+			// IE7 inappropriately collapses table cells and gives outlandish
+			// values for offsetWidth
+			if (!ie8 && (parent.nodeName.toUpperCase() === 'TD' || parent.nodeName.toUpperCase() === 'TH')) {
+				parent.style.width = '';
+				if (parent.currentStyle.width === 'auto') {
+					parent.style.width = dimensions.width + 'px';
+				}
+			}
 
 			// I don’t know what this was *supposed* to do, but it seems to
 			// just fuck up the borders.
@@ -1278,10 +1378,8 @@
 				if (imageMap[vmlBg] === undefined) {
 					img = new Image();
 					img.attachEvent('onload', proxy(this, function () {
-						// img.detachEvent('onload', arguments.callee.callee);
-
-						// Replace the object in the map with something more
-						// primitive to save memory
+						// Replace the Image object in the map with something
+						// more primitive to save memory
 						imageMap[vmlBg] = {
 							width: this.width,
 							height: this.height

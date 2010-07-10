@@ -10,8 +10,10 @@ RoundRect.run() and you’ve got rounded rectangles!
 
 Features:
 
-* A svelte 4.5kB once minified + gzipped
+* A svelte 4.9kB once minified + gzipped
 * No dependencies on external libraries
+* Functions even if you are using an evil library that modifies
+  Object.prototype (you know who you are)
 * Properly object-oriented; no C masquerading as JavaScript here
 * 100% configuration-free border-radius support
 * Supports dynamically updating backgrounds and borders, without using polling
@@ -20,10 +22,10 @@ Features:
 * Supports input and textarea elements, and even drop-downs in IE8
 * Functions properly in IE7 and IE8 strict mode
 * (Almost) readable code with (nearly) complete jsdoc documentation
+* No memory leaks!
 
 Caveats:
 
-* Leaks memory on INPUT elements.
 * Only pixel units are supported for padding, border-width, and border-radius.
   Anything else will be assumed to be pixel width, even if it isn’t.
   You’ve been warned.
@@ -38,7 +40,8 @@ Caveats:
   erattically when the mouse moves over a rounded element. More specifically,
   hovering over an area of a rounded element that does not contain a child
   element will result in the mouse basically falling through the layer into
-  VML’s cold, dead arms.
+  VML’s cold, dead arms. There is a workaround in the code to try to mitigate
+  this issue but it does not work 100% of the time.
 * Could it support more of CSS3 backgrounds and borders, like, perhaps,
   rgba backgrounds? HECK YES IT COULD, TOTALLY! …but it doesn’t right now.
 
