@@ -1,4 +1,9 @@
-(function ($, undefined) {
+(function (undefined) {
+	// That’s not IE! Getouttahere.
+	if (!window.attachEvent) {
+		return;
+	}
+
 	/**
 	 * RoundRect. Makes funny looking square boxes into funny looking round
 	 * boxes in your funny looking Microsoft browser.
@@ -11,69 +16,124 @@
 	 * Released under MIT license.
 	 */
 
-	// you can change these to something else if you don’t like them (for
-	// example, if you are a dork and think CS_undies is a better name).
-
-	// ns is used as the element that gets inserted to the DOM as a
-	// wrapper around the VML, and the xmlns is the namespace prefix that
-	// VML is registered to.
+	/**
+	 * The nodeName for the element that is wrapped around the VML, as well as
+	 * the name of the globally exposed RoundRect method.
+	 * Defaults to RoundRect. You can change it to something else if you don’t
+	 * like it (for example, if you are a dork and think CS_undies is a better
+	 * name).
+	 * @type {string}
+	 */
 	var ns = 'RoundRect',
+
+		/**
+		 * The namespace prefix that VML is bound to.
+		 * @type {string}
+		 */
 		xmlns = 'rr',
 
-		// you can change these if you want to specify a prefix in your CSS
-		// or something, but really they are here because I am lazy and these
-		// are long strings!
+		/**
+		 * You can change these if you want to use a specific prefix in your
+		 * CSS instead of using the unprefixed version of border-radius, though
+		 * mostly they are here because these strings are stupidly long.
+		 * @type {string}
+		 */
 		br = 'border-radius',
+
+		/**
+		 * @type {string}
+		 */
 		btl = 'border-top-left-radius',
+
+		/**
+		 * @type {string}
+		 */
 		btr = 'border-top-right-radius',
+
+		/**
+		 * @type {string}
+		 */
 		bbr = 'border-bottom-right-radius',
+
+		/**
+		 * @type {string}
+		 */
 		bbl = 'border-bottom-left-radius',
 
+		/**
+		 * @type {string}
+		 */
 		expando = ns + new Date().getTime(),
+
+		/**
+		 * @type {number}
+		 */
 		uuid = 0,
+
+		/**
+		 * Internal collection of all RoundRect objects. Used to ensure all
+		 * RoundRects are properly cleaned up so that IE does not leak memory
+		 * all over the ground.
+		 * @type {Object.<string, RoundRect>}
+		 */
 		collection = {},
+
+		/**
+		 * @type {boolean}
+		 */
 		ie8 = document.documentMode === 8,
+
+		/**
+		 * @type {boolean}
+		 */
+		isDOMReady = false,
+
+		/**
+		 * @type {Array.<function(this:Document)>}
+		 */
+		readyList = [],
+
+		/**
+		 * A map of images that are used as background-images. This is needed
+		 * in order to get the correct size of the original image in order to
+		 * clip it for repeat-x and repeat-y.
+		 * @type {Object.<string, (Image|Object)>}
+		 */
 		imageMap = {},
 
+		/**
+		 * @type {RegExp}
+		 */
 		isPixelString = /^-?\d+(?:px)?$/i,
+
+		/**
+		 * @type {RegExp}
+		 */
 		isNumericString = /^-?\d/;
 
 	/**
-	 * Enables VML for the current page.
-	 * @private
+	 * Proxy function.
+	 * @param {Object} obj Object to bind as ‘this’
+	 * @param {Function} fn Function to call
+	 * @return {Function}
 	 */
-	function enableVml() {
-		var css, rule;
+	function proxy(obj, fn) {
+		return function () {
+			return fn.apply(obj || this, arguments);
+		};
+	}
 
-		// IE will throw confused errors if document.namespaces
-		// is not ready for our sweet sweet lovin’
-		try {
-			if (ie8) {
-				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml', '#default#VML');
-			}
-			else {
-				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml');
-			}
+	/**
+	 * Registers a function to be executed on DOM ready.
+	 * @param {Function} fn
+	 */
+	function ready(fn) {
+		if (isDOMReady) {
+			fn.call(document);
+			return;
 		}
-		catch (e) {
-			setTimeout(enableVml, 10);
-		}
 
-		// Technically not part of enabling VML, but it is important to
-		// prevent all sorts of havoc
-		try {
-			document.execCommand('BackgroundImageCache', false, true);
-		}
-		catch (e) {}
-
-		// luckily, IE does not care that styles are going into the body
-		css = document.createElement('style');
-		document.body.appendChild(css);
-
-		rule = 'behavior:url(#default#VML);display:inline-block';
-		css.styleSheet.addRule(xmlns + '\\:shape', rule);
-		css.styleSheet.addRule(xmlns + '\\:group', rule);
-		css.styleSheet.addRule(xmlns + '\\:fill', rule);
+		readyList.push(fn);
 	}
 
 	/**
@@ -107,12 +167,89 @@
 		return 0;
 	}
 
-	// That’s not IE! Getouttahere.
-	if (!window.attachEvent) {
-		return;
-	}
+	/**
+	 * Enables VML on the current page.
+	 */
+	(function enableVml() {
+		var css, rule;
 
-	enableVml();
+		// IE will throw confused errors if document.namespaces
+		// is not ready for our sweet sweet lovin’
+		try {
+			if (ie8) {
+				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml', '#default#VML');
+			}
+			else {
+				document.namespaces.add(xmlns, 'urn:schemas-microsoft-com:vml');
+			}
+		}
+		catch (e) {
+			setTimeout(enableVml, 10);
+			return;
+		}
+
+		// Technically not part of enabling VML, but it is important to
+		// prevent all sorts of havoc
+		try {
+			document.execCommand('BackgroundImageCache', false, true);
+		}
+		catch (e) {}
+
+		// luckily, IE does not care that styles are going into the body
+		css = document.createElement('style');
+		document.body.appendChild(css);
+
+		rule = 'behavior:url(#default#VML);display:inline-block';
+		css.styleSheet.addRule(xmlns + '\\:shape', rule);
+		css.styleSheet.addRule(xmlns + '\\:group', rule);
+		css.styleSheet.addRule(xmlns + '\\:fill', rule);
+	}());
+
+	/**
+	 * Executes onReady once the DOM has loaded.
+	 */
+	function onReady() {
+		var fn;
+
+		if (isDOMReady) {
+			document.detachEvent('onreadystatechange', onReady);
+			return;
+		}
+
+		if (document.readyState === 'complete') {
+			document.detachEvent('onreadystatechange', onReady);
+
+			if (!document.body) {
+				setTimeout(onReady, 13);
+				return;
+			}
+
+			isDOMReady = true;
+			while ((fn = readyList.shift())) {
+				fn.call(document);
+			}
+		}
+	}
+	document.attachEvent('onreadystatechange', onReady);
+
+	/**
+	 * Poll for early document ready state.
+	 */
+	(function scrollCheck() {
+		if (isDOMReady) {
+			return;
+		}
+
+		try {
+			document.documentElement.doScroll('left');
+		}
+		catch (e) {
+			setTimeout(scrollCheck);
+			return;
+		}
+
+		onReady();
+	}());
 
 	/**
 	 * Only you can prevent horrible memory leaks in IE—because Microsoft
@@ -146,7 +283,7 @@
 		collection[element[expando] = (++uuid)] = this;
 
 		this.element = element;
-		this.onPropertyChangeProxy = $.proxy(function () {
+		this.onPropertyChangeProxy = proxy(this, function () {
 			var self = this,
 				property = window.event.propertyName;
 
@@ -155,9 +292,9 @@
 			setTimeout(function () {
 				self.onPropertyChange.call(self, property);
 			});
-		}, this);
+		});
 
-		this.onStateChangeProxy = $.proxy(function () {
+		this.onStateChangeProxy = proxy(this, function () {
 			var self = this,
 				eventType = window.event.type;
 
@@ -166,21 +303,26 @@
 			setTimeout(function () {
 				self.onStateChange.call(self, eventType);
 			});
-		}, this);
+		});
 
-		this.onVmlStateChangeProxy = $.proxy(function () {
+		this.onVmlStateChangeProxy = proxy(this, function () {
 			//console.log('VMLSTATECHANGE' + event.type);
 
 			this.onVmlStateChange(window.event.type);
-		}, this);
+		});
 
-		$(document).ready($.proxy(function () {
+		this.events = {
+			element: {},
+			container: {}
+		};
+
+		ready(proxy(this, function () {
 			this.render();
 
 			if (dynamic) {
 				this.start();
 			}
-		}, this));
+		}));
 	}
 
 	/**
@@ -193,7 +335,7 @@
 	 * bummer.
 	 * @type {Object.<string, boolean>}
 	 */
-	RoundRect.disallowed = { INPUT: false, BODY: true, TABLE: true, TR: true, TD: true, SELECT: !ie8, OPTION: true };
+	RoundRect.disallowed = { BODY: true, TABLE: true, TR: true, TD: true, SELECT: !ie8, OPTION: true };
 
 	/**
 	 * Creates a new RoundRect object, or returns the one that already exists
@@ -307,20 +449,27 @@
 			RoundRect.processStyleSheets();
 		}
 
-		$(document).ready(function () {
-			$('*').each(function (i, e, sucks) {
-				var cs = e.currentStyle,
-					tagName = e.nodeName.toUpperCase();
+		ready(function () {
+			var elements = document.getElementsByTagName('*'),
+				i, e, sucks, cs, tagName, nsUpper = ns.toUpperCase();
 
-				// Skip RoundRect, VML, and disallowed elements
-				if (tagName === ns.toUpperCase() || RoundRect.disallowed[tagName] || e.scopeName === xmlns) {
-					return;
+			// NodeLists are live; when elements are added, the length changes,
+			// so don’t you dare try to optimize this loop unless you want to
+			// break stuff
+			for (i = 0; i < elements.length; ++i) {
+				e = elements[i];
+				cs = e.currentStyle;
+				tagName = e.nodeName.toUpperCase();
+
+				// Skip non-Element, RoundRect, VML, and disallowed elements
+				if (e.nodeType !== 1 || tagName === nsUpper || RoundRect.disallowed[tagName] || e.scopeName === xmlns) {
+					continue;
 				}
 
 				if ((cs[br] || cs[btl] || cs[btr] || cs[bbr] || cs[bbl]) !== undefined || (dynamic && watchAll)) {
 					RoundRect.create(e, dynamic);
 				}
-			});
+			}
 		});
 	};
 
@@ -382,7 +531,92 @@
 		 * @type {Object.<string, string>}
 		 * @private
 		 */
-		originalStyles: {},
+		originalStyles: undefined,
+
+		/**
+		 * References to event handlers for this element and its container.
+		 * Required in order to prevent memory leaks.
+		 * Defined in the constructor.
+		 * @type {Object.<string, Object.<string, Array.<Function>>>}
+		 * @private
+		 */
+		events: undefined,
+
+		/**
+		 * Adds events to DOM elements in a manner such that they can be safely
+		 * removed for garbage collection, since IE is incapable of doing this
+		 * on its own.
+		 * @param {string} elementType Either ‘element’ or ‘container’,
+		 * depending upon which we are adding an event to.
+		 * @param {string} eventType The type of event, excluding ‘on’.
+		 * @param {Function} fn The event handler.
+		 */
+		addEvent: function (elementType, eventType, fn) {
+			if (!this.events[elementType][eventType]) {
+				this.events[elementType][eventType] = [ fn ];
+			}
+			else {
+				this.events[elementType][eventType].push(fn);
+			}
+
+			this[elementType].attachEvent('on' + eventType, fn);
+		},
+
+		/**
+		 * Removes events from DOM elements in a manner such that they can be
+		 * safely garbage collected, since IE is incapable of doing this on its
+		 * own.
+		 * @param {string=} element Either ‘element’ or ‘container’. If
+		 * undefined, all events will be removed.
+		 * @param {string=} event The type of event, excluding ‘on’. If
+		 * undefined, all events for the specified elementType will be removed.
+		 * @param {Function=} fn The function to unbind. If undefined, all
+		 * events for the specified eventType will be removed.
+		 */
+		removeEvent: function (element, event, fn) {
+			var elementTypes, eventTypes, elementEvents,
+				elementType, eventType, i, j;
+
+			if (element !== undefined) {
+				elementTypes = {};
+				elementTypes[element] = 1;
+			}
+			else {
+				elementTypes = this.events;
+			}
+
+			for (elementType in elementTypes) {
+				if (elementTypes.hasOwnProperty(elementType)) {
+					if (event !== undefined) {
+						eventTypes = {};
+						eventTypes[event] = 1;
+					}
+					else {
+						eventTypes = this.events[elementType];
+					}
+
+					for (eventType in eventTypes) {
+						if (eventTypes.hasOwnProperty(eventType)) {
+							elementEvents = this.events[elementType][eventType];
+
+							for (i = 0, j = elementEvents.length; i < j; ++i) {
+								if (elementEvents[i] === fn) {
+									this[elementType].detachEvent('on' + eventType, elementEvents.splice(i, 1)[0]);
+									return;
+								}
+								else if (fn === undefined) {
+									this[elementType].detachEvent('on' + eventType, elementEvents[i]);
+								}
+							}
+
+							if (fn === undefined) {
+								delete this.events[elementType][eventType];
+							}
+						}
+					}
+				}
+			}
+		},
 
 		/**
 		 * Breaks references to the DOM to allow Microsoft’s crap GC to GC.
@@ -392,6 +626,7 @@
 		destroy: function (restoreStyles) {
 			var id = this.element[expando], i;
 			this.stop();
+			this.removeEvent();
 			this.element.removeAttribute(expando);
 
 			if (this.vml) {
@@ -403,6 +638,9 @@
 			}
 
 			if (this.container) {
+				// IE will leak orphan nodes if we do not empty out the
+				// innerHTML before calling removeChild
+				this.container.innerHTML = '';
 				if (this.container && this.container.parentNode) {
 					this.container.parentNode.insertBefore(this.element, this.container);
 					this.container.parentNode.removeChild(this.container);
@@ -447,28 +685,29 @@
 		 * @private
 		 */
 		modifyEvents: function (append) {
-			var e = this.element,
-				c = this.container,
+			var e = 'element',
+				c = 'container',
 				scp = this.onStateChangeProxy,
 				vcp = this.onVmlStateChangeProxy,
-				method = append ? 'attachEvent' : 'detachEvent';
-			e[method]('onpropertychange', this.onPropertyChangeProxy);
+				method = append ? 'addEvent' : 'removeEvent';
+
+			this[method](e, 'propertychange', this.onPropertyChangeProxy);
 
 			// events that may have corresponding changes within stylesheets
-			e[method]('onmouseenter', scp);
-			e[method]('onmouseleave', scp);
-			e[method]('onfocus', scp);
-			e[method]('onblur', scp);
+			this[method](e, 'mouseenter', scp);
+			this[method](e, 'mouseleave', scp);
+			this[method](e, 'focus', scp);
+			this[method](e, 'blur', scp);
 
 			// onresize fires whenever the original element is resized
-			e[method]('onresize', scp);
+			this[method](e, 'resize', scp);
 
 			// move fires whenever the original element changes positions
-			e[method]('onmove', scp);
+			this[method](e, 'move', scp);
 
-			c[method]('onmouseover', vcp);
-			c[method]('onmouseout', vcp);
-			c[method]('onclick', vcp);
+			this[method](c, 'mouseover', vcp);
+			this[method](c, 'mouseout', vcp);
+			this[method](c, 'click', vcp);
 		},
 
 		/**
@@ -480,23 +719,26 @@
 		onVmlStateChangeProxy: undefined,
 
 		/**
-		 * Attaches a class to the element when its VML container is hovered
-		 * over, since the mouse passes right through any areas of the rounded
-		 * element that aren’t taken up by child elements.
+		 * Attaches a -hover class to the element when its VML container is
+		 * hovered over, since the mouse passes right through any areas of the
+		 * rounded element that aren’t taken up by child elements.
 		 * @param {string} eventType
 		 */
 		onVmlStateChange: function (eventType) {
-			// document.activeElement will never strictly equal the document
+			var className = ' ' + this.element.className + ' ';
+
 			if (eventType === 'click'
 				&& document.activeElement !== this.element
 				&& document.activeElement !== document.body) {
 				document.activeElement.blur();
 			}
-			else if (eventType === 'mouseover') {
-				$(this.element).addClass(ns + '-hover');
+			else if (eventType === 'mouseover'
+				     && className.indexOf(' ' + ns + '-hover ') === -1) {
+				this.element.className += ' ' + ns + '-hover';
 			}
-			else if (eventType === 'mouseout') {
-				$(this.element).removeClass(ns + '-hover');
+			else if (eventType === 'mouseout'
+					 && className.indexOf(' ' + ns + '-hover ') !== -1) {
+				this.element.className = className.replace(' ' + ns + '-hover ', ' ').replace(/^\s+|\s+$/g, '');
 			}
 		},
 
@@ -725,12 +967,14 @@
 			// provide accurate positioning and to prevent VML layout bugs
 			// (like having the VML render itself over the content). If your
 			// everything breaks, uh, sorry!
-			this.originalStyles.zoom = e.style.zoom;
-			this.originalStyles.position = e.style.position;
-			this.originalStyles.top = e.style.top;
-			this.originalStyles.right = e.style.right;
-			this.originalStyles.bottom = e.style.bottom;
-			this.originalStyles.left = e.style.left;
+			this.originalStyles = {
+				zoom: e.style.zoom,
+				position: e.style.position,
+				top: e.style.top,
+				right: e.style.right,
+				bottom: e.style.bottom,
+				left: e.style.left
+			};
 
 			// According to Drew, if “something” accidentally matches this,
 			// you'll get infinitely-created elements and a frozen browser.
@@ -771,29 +1015,29 @@
 				// carat in the wrong place, but it works in most common cases
 				// and is much better than the default behaviour.
 				this.container.style.cursor = cs.cursor === 'auto' ? 'text' : cs.cursor;
-				this.container.attachEvent('onclick', $.proxy(function () {
+				this.addEvent('container', 'click', proxy(this, function () {
 					var range = this.element.createTextRange();
 					range.moveStart('textedit');
 					range.select();
-				}, this));
+				}));
 			}
 
 			// Without a timeout, IE will throw “unspecified errors”
-			setTimeout($.proxy(function () {
-				this.container.attachEvent('onmouseenter', $.proxy(function () {
+			setTimeout(proxy(this, function () {
+				this.addEvent('container', 'mouseenter', proxy(this, function () {
 					var fakeEvent = document.createEventObject(window.event);
 					fakeEvent.toElement = fakeEvent.srcElement = this.element;
 					this.element.fireEvent('on' + window.event.type, fakeEvent);
-				}, this));
-				this.container.attachEvent('onmouseleave', $.proxy(function () {
+				}));
+				this.addEvent('container', 'mouseleave', proxy(this, function () {
 					var fakeEvent = document.createEventObject(window.event);
 					fakeEvent.fromElement = fakeEvent.srcElement = this.element;
 					this.element.fireEvent('on' + window.event.type, fakeEvent);
-				}, this));
+				}));
 				this.dimensions = this.calculateDimensions();
 				this.borderWidths = this.calculateBorderWidths();
 				this.applyVML();
-			}, this));
+			}));
 		},
 
 		/**
@@ -1033,15 +1277,17 @@
 				// Determine the size of the loaded image
 				if (imageMap[vmlBg] === undefined) {
 					img = new Image();
-					img.attachEvent('onload', $.proxy(function () {
+					img.attachEvent('onload', proxy(this, function () {
+						// img.detachEvent('onload', arguments.callee.callee);
+
 						// Replace the object in the map with something more
-						// primitive
+						// primitive to save memory
 						imageMap[vmlBg] = {
 							width: this.width,
 							height: this.height
 						};
 						this.vmlOffsets();
-					}, this));
+					}));
 					img.src = vmlBg;
 					imageMap[vmlBg] = img;
 				}
@@ -1154,4 +1400,4 @@
 
 	// Expose RoundRect to the world!
 	window[ns] = RoundRect;
-}(jQuery));
+}());

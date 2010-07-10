@@ -10,7 +10,8 @@ RoundRect.run() and you’ve got rounded rectangles!
 
 Features:
 
-* A svelte 4.1kB once minified + gzipped
+* A svelte 4.5kB once minified + gzipped
+* No dependencies on external libraries
 * Properly object-oriented; no C masquerading as JavaScript here
 * 100% configuration-free border-radius support
 * Supports dynamically updating backgrounds and borders, without using polling
@@ -22,12 +23,10 @@ Features:
 
 Caveats:
 
+* Leaks memory on INPUT elements.
 * Only pixel units are supported for padding, border-width, and border-radius.
   Anything else will be assumed to be pixel width, even if it isn’t.
   You’ve been warned.
-* Currently relies on jQuery 1.4 for some magic—but that’s OK, because you were
-  already using jQuery, right? (These lingering dependencies will be the first
-  to go. Yay for growing up and being independent!)
 * Dynamic updates are about as responsive as a rock star in a drug-induced coma
   in IE8; in IE7, more like a 90-year-old missing their hearing aids.
 * Sometimes, elements aren’t properly redrawn when a change causes several
