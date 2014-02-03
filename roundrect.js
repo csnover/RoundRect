@@ -816,11 +816,13 @@
 				&& document.activeElement !== document.body) {
 				document.activeElement.blur();
 			}
-			else if (eventType === 'mouseover') {
-				this.addClass(hoverClass);
-			}
-			else if (eventType === 'mouseout') {
-				this.removeClass(hoverClass);
+			else if (isButton(this.element)) {
+				if (eventType === 'mouseover') {
+					this.addClass(hoverClass);
+				}
+				else if (eventType === 'mouseout') {
+					this.removeClass(hoverClass);
+				}
 			}
 		},
 
